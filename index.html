@@ -43,6 +43,7 @@
   .top-title{font-size:clamp(26px,6vw,42px);margin:0 0 6px;color:var(--blue-shadow);
     letter-spacing:.5px;}
   .top-btn{width:min(82vw,540px);height:20vh;min-height:100px;
+    position:relative;z-index:2;
     display:flex;align-items:center;justify-content:center;gap:16px;
     font-size:clamp(22px,4.4vw,32px);color:var(--white);}
   .top-btn .emoji{font-size:clamp(36px,6.5vw,52px);}
@@ -80,27 +81,29 @@
   .dot.on{background:var(--blue);}
 
   /* ================= QUIZ SCREEN ================= */
-  #screen-quiz{gap:14px;padding:16px;}
+  #screen-quiz{gap:0;padding:82px 16px 16px;justify-content:flex-start;}
   .quiz-top{position:absolute;top:16px;right:16px;z-index:5;
     background:var(--white);border-radius:20px;padding:8px 18px;
     display:flex;align-items:center;gap:8px;box-shadow:0 6px 0 rgba(27,42,65,.12);
     font-family:'Baloo 2',sans-serif;font-weight:700;font-size:20px;}
-  .quiz-prompt{font-size:clamp(15px,3vw,18px);color:var(--ink-soft);font-weight:700;
+  .quiz-prompt{flex:0 0 auto;font-size:clamp(15px,3vw,18px);color:var(--ink-soft);font-weight:700;
     margin-bottom:4px;}
-  .quiz-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;
-    width:min(90vw,560px);max-height:70vh;overflow-y:auto;}
-  .quiz-option{position:relative;aspect-ratio:3/2;background:var(--white);border:none;
+  /* 国旗グリッドは残りの高さいっぱいに伸縮させ、スクロールが発生しないようにする */
+  .quiz-grid{flex:1 1 auto;min-height:0;width:100%;max-width:560px;
+    display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:16px;}
+  .quiz-option{position:relative;min-height:0;min-width:0;background:var(--white);border:none;
     border-radius:24px;padding:10px;box-shadow:0 10px 0 rgba(27,42,65,.15);cursor:pointer;
     transition:transform .08s ease, box-shadow .08s ease;}
   .quiz-option:active{transform:translateY(7px);box-shadow:0 3px 0 rgba(27,42,65,.15);}
   .quiz-option img{width:100%;height:100%;object-fit:contain;border-radius:16px;display:block;}
-  /* スマホ縦画面では1列4段に切り替え */
+  /* スマホ縦画面では1列4段に切り替え(高さは常に画面の残りスペースいっぱいに収まる) */
   @media (orientation:portrait) and (max-width:700px){
-    .quiz-grid{grid-template-columns:1fr;width:min(74vw,340px);}
+    .quiz-grid{grid-template-columns:1fr;grid-template-rows:repeat(4,1fr);max-width:300px;}
   }
   .quiz-option.correct-flash{box-shadow:0 10px 0 var(--correct-shadow);
     outline:6px solid var(--correct);}
   .quiz-option.wrong-shake{animation:shake .38s ease;outline:6px solid var(--wrong);}
+  #quiz-body{flex:1 1 auto;min-height:0;width:100%;}
   @keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-10px);}
     40%{transform:translateX(9px);}60%{transform:translateX(-7px);}80%{transform:translateX(6px);}}
   .toast{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);
@@ -178,9 +181,9 @@
 
   <!-- ================= TOP ================= -->
   <div class="screen active" id="screen-top">
-    <div class="blob" style="width:220px;height:220px;left:-40px;top:60px;background:#CFE9FF;"></div>
-    <div class="blob" style="width:160px;height:160px;right:-30px;top:30%;background:#FFF3D0;"></div>
-    <div class="blob" style="width:180px;height:180px;left:20%;bottom:-60px;background:#D8F5E5;"></div>
+    <div class="blob" style="width:clamp(90px,30vw,220px);height:clamp(90px,30vw,220px);left:-8vw;top:4%;background:#CFE9FF;"></div>
+    <div class="blob" style="width:clamp(70px,24vw,160px);height:clamp(70px,24vw,160px);right:-8vw;top:34%;background:#FFF3D0;"></div>
+    <div class="blob" style="width:clamp(80px,26vw,180px);height:clamp(80px,26vw,180px);left:18%;bottom:-6vh;background:#D8F5E5;"></div>
     <h1 class="top-title display">🌍 Flag Friends</h1>
     <button class="chunky top-btn btn-memorize" onclick="goMemorize()">
       <span class="emoji">🟦</span><span>Learn</span>
@@ -493,15 +496,46 @@ function goQuiz(){ ensureAudio(); showScreen('screen-quiz'); startQuizRound(); }
 function goSettings(){ renderSettings(); showScreen('screen-settings'); }
 
 /* ================================================================
-   音声(Web Speech API)
+   音声(Web Speech API) — モバイル対応強化版
    ================================================================ */
-function speak(text){
-  if(!('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
+/* 一部端末はgetVoices()が初回すぐには返らないため、voiceschangedでキャッシュする */
+let cachedVoices = [];
+function refreshVoices(){
+  if('speechSynthesis' in window) cachedVoices = window.speechSynthesis.getVoices();
+}
+if('speechSynthesis' in window){
+  refreshVoices();
+  window.speechSynthesis.onvoiceschanged = refreshVoices;
+}
+function pickEnglishVoice(){
+  return cachedVoices.find(v=>v.lang==='en-US')
+      || cachedVoices.find(v=>v.lang && v.lang.toLowerCase().startsWith('en'))
+      || null;
+}
+function makeUtterance(text){
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'en-US';
   u.rate = 0.85;
   u.pitch = 1.15;
+  const v = pickEnglishVoice();
+  if(v) u.voice = v;
+  return u;
+}
+function speak(text){
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  // Android Chromeでcancel()直後にspeak()すると無視されることがあるため、少し間をおく
+  setTimeout(()=>{ window.speechSynthesis.speak(makeUtterance(text)); }, 30);
+}
+/* iOS Safariなどは「ユーザー操作と同期していない」speak()呼び出し(setTimeout経由など)を
+   無音のまま無視することがある。効果音(Web Audio)と同様に、最初のタップの中で一度だけ
+   実際に発話しておくことで、以降の非同期な読み上げも機能するようになる。 */
+let speechPrimed = false;
+function primeSpeech(){
+  if(speechPrimed || !('speechSynthesis' in window)) return;
+  speechPrimed = true;
+  const u = new SpeechSynthesisUtterance(' ');
+  u.volume = 0;
   window.speechSynthesis.speak(u);
 }
 
@@ -693,14 +727,16 @@ function speakPraiseThenAdvance(text, starsAtAnswer){
   const proceed = ()=> advanceAfterAnswer(starsAtAnswer);
   if(!('speechSynthesis' in window)){ setTimeout(proceed, 900); return; }
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.15;
   let done = false;
   const finish = ()=>{ if(done) return; done = true; proceed(); };
-  u.onend = finish;
-  u.onerror = finish;
-  window.speechSynthesis.speak(u);
-  setTimeout(finish, 2200); // 万一onendが発火しない端末向けの保険
+  // Android Chromeでcancel()直後にspeak()すると無視されることがあるため、少し間をおく
+  setTimeout(()=>{
+    const u = makeUtterance(text);
+    u.onend = finish;
+    u.onerror = finish;
+    window.speechSynthesis.speak(u);
+  }, 30);
+  setTimeout(finish, 2400); // 万一onendが発火しない端末向けの保険
 }
 function advanceAfterAnswer(starsAtAnswer){
   const milestone10 = (starsAtAnswer % 10 === 0);
@@ -849,7 +885,7 @@ function updateSettingsWarning(forced=false){
 }
 
 /* 初回タップでオーディオ許可を得る(ブラウザ制限対策) */
-document.addEventListener('pointerdown', ensureAudio, {once:true});
+document.addEventListener('pointerdown', ()=>{ ensureAudio(); primeSpeech(); }, {once:true});
 </script>
 </body>
 </html>
