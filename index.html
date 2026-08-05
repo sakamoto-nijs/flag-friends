@@ -17,6 +17,7 @@
     --correct:#4CD787;    --correct-shadow:#2FA968;
     --wrong:#FF6B6B;      --wrong-shadow:#DB4B4B;
     --white:#FFFFFF;
+    --card-bg:#EDEFF2; /* 国旗カード専用の薄いグレー(白い国旗との境界が分かるように) */
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg);
@@ -62,7 +63,7 @@
   .flag-stage{width:100%;height:100%;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:22px;touch-action:pan-y;}
   .flag-card{position:relative;width:min(78vw,460px);aspect-ratio:3/2;
-    background:var(--white);border-radius:36px;padding:16px;
+    background:var(--card-bg);border-radius:36px;padding:16px;
     box-shadow:0 14px 0 rgba(27,42,65,.15), 0 24px 40px rgba(27,42,65,.18);
     transition:transform .18s ease, opacity .18s ease;cursor:pointer;}
   .flag-card img{width:100%;height:100%;object-fit:contain;border-radius:20px;display:block;}
@@ -91,7 +92,7 @@
   /* 国旗グリッドは残りの高さいっぱいに伸縮させ、スクロールが発生しないようにする */
   .quiz-grid{flex:1 1 auto;min-height:0;width:100%;max-width:560px;
     display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:16px;}
-  .quiz-option{position:relative;min-height:0;min-width:0;background:var(--white);border:none;
+  .quiz-option{position:relative;min-height:0;min-width:0;background:var(--card-bg);border:none;
     border-radius:24px;padding:10px;box-shadow:0 10px 0 rgba(27,42,65,.15);cursor:pointer;
     transition:transform .08s ease, box-shadow .08s ease;}
   .quiz-option:active{transform:translateY(7px);box-shadow:0 3px 0 rgba(27,42,65,.15);}
