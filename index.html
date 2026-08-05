@@ -538,10 +538,10 @@ function showScreen(id){
 function goTop(){ showScreen('screen-top'); }
 function goMemorize(){
   ensureAudio();
+  showScreen('screen-memorize'); // 先に画面遷移(内部でspeechSynthesis.cancel()される)
   memIndex = 0;
   memorizeList = randomOrder ? shuffle(enabledCountries()) : enabledCountries();
-  renderMemorizeCard();
-  showScreen('screen-memorize');
+  renderMemorizeCard(); // ここで新しい国旗が表示され、自動で読み上げられる
 }
 function goQuiz(){ ensureAudio(); showScreen('screen-quiz'); startQuizRound(); }
 function goSettings(){ renderSettings(); showScreen('screen-settings'); }
@@ -588,6 +588,17 @@ function primeSpeech(){
   const u = new SpeechSynthesisUtterance(' ');
   u.volume = 0;
   window.speechSynthesis.speak(u);
+}
+/* ページを開いた瞬間(操作前)にも、うまくいけば音声エンジンをウォームアップしておく。
+   ブラウザによってはユーザー操作なしの発話をブロックすることがあるため、
+   これは「うまくいけば得をする」保険的な処理であり、失敗しても上記のprimeSpeech()が
+   最初のタップで確実にカバーする。 */
+if('speechSynthesis' in window){
+  try{
+    const warm = new SpeechSynthesisUtterance(' ');
+    warm.volume = 0;
+    window.speechSynthesis.speak(warm);
+  }catch(e){ /* ブロックされても問題ない(タップ時のprimeSpeech()でカバーされる) */ }
 }
 
 /* ================================================================
@@ -661,6 +672,8 @@ function renderMemorizeCard(){
     d.className = 'dot' + (i===(memIndex%list.length) ? ' on' : '');
     dots.appendChild(d);
   });
+
+  setTimeout(()=> speak(c.name + '!'), 150); // 新しい国旗が表示されたら自動で読み上げる
 }
 function tapMemorizeCard(){
   const list = memorizeList;
@@ -814,6 +827,7 @@ function celebrate(emoji, text){
   document.getElementById('celebration-text').textContent = text;
   document.getElementById('celebration').classList.add('show');
   burstConfetti(40, true);
+  speak(text); // 「Congratulations!」「Medal earned!」も読み上げる
   setTimeout(()=>{
     document.getElementById('celebration').classList.remove('show');
     startQuizRound();
