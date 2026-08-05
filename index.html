@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Flag Friends</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EAF6FF;
+    --blue:#3DA9FC;      --blue-shadow:#1E7FC7;
+    --yellow:#FFC93C;    --yellow-shadow:#DFA300;
+    --gray:#C7D0DD;       --gray-shadow:#96A2B5;
+    --ink:#1B2A41;        --ink-soft:#5B6B85;
+    --correct:#4CD787;    --correct-shadow:#2FA968;
+    --wrong:#FF6B6B;      --wrong-shadow:#DB4B4B;
+    --white:#FFFFFF;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg);
+    font-family:'Nunito',sans-serif;color:var(--ink);user-select:none;}
+  #app{position:relative;width:100vw;height:100vh;height:100dvh;overflow:hidden;}
+  .screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;}
+  .screen.active{display:flex;}
+  .display{font-family:'Baloo 2',sans-serif;}
+
+  /* ---------- decorative background blobs (top screen only) ---------- */
+  .blob{position:absolute;border-radius:50%;filter:blur(1px);z-index:0;pointer-events:none;}
+
+  /* ---------- chunky pressable element (signature interaction) ---------- */
+  .chunky{
+    border:none;cursor:pointer;border-radius:28px;
+    font-family:'Baloo 2',sans-serif;font-weight:700;
+    box-shadow:0 10px 0 var(--sc,#000);
+    transition:transform .07s ease, box-shadow .07s ease;
+  }
+  .chunky:active{transform:translateY(8px);box-shadow:0 2px 0 var(--sc,#000);}
+
+  /* ================= TOP SCREEN ================= */
+  #screen-top{gap:20px;padding:26px;z-index:1;}
+  .top-title{font-size:clamp(26px,6vw,42px);margin:0 0 6px;color:var(--blue-shadow);
+    letter-spacing:.5px;}
+  .top-btn{width:min(82vw,540px);height:20vh;min-height:100px;
+    display:flex;align-items:center;justify-content:center;gap:16px;
+    font-size:clamp(22px,4.4vw,32px);color:var(--white);}
+  .top-btn .emoji{font-size:clamp(36px,6.5vw,52px);}
+  .btn-memorize{background:var(--blue);--sc:var(--blue-shadow);}
+  .btn-quiz{background:var(--yellow);--sc:var(--yellow-shadow);color:var(--ink);}
+  .btn-settings{background:var(--gray);--sc:var(--gray-shadow);color:var(--ink-soft);
+    font-size:clamp(15px,2.8vw,20px);height:11vh;min-height:64px;}
+
+  /* ================= SHARED: back button ================= */
+  .back-btn{position:absolute;top:18px;left:18px;z-index:5;width:56px;height:56px;
+    border-radius:18px;background:var(--white);--sc:#C9D3E0;font-size:24px;
+    display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
+
+  /* ================= MEMORIZE SCREEN ================= */
+  #screen-memorize{gap:22px;}
+  .flag-stage{width:100%;height:100%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;touch-action:pan-y;}
+  .flag-card{position:relative;width:min(78vw,460px);aspect-ratio:3/2;
+    background:var(--white);border-radius:36px;padding:16px;
+    box-shadow:0 14px 0 rgba(27,42,65,.15), 0 24px 40px rgba(27,42,65,.18);
+    transition:transform .18s ease, opacity .18s ease;cursor:pointer;}
+  .flag-card img{width:100%;height:100%;object-fit:contain;border-radius:20px;display:block;}
+  .flag-nav-row{display:flex;align-items:center;justify-content:center;gap:18px;width:100%;}
+  .flag-nav-btn{width:52px;height:52px;min-width:52px;border-radius:16px;
+    background:var(--white);--sc:#C9D3E0;font-size:22px;color:var(--ink-soft);
+    display:flex;align-items:center;justify-content:center;}
+  .flag-card.tap-bounce{animation:tapBounce .28s ease;}
+  @keyframes tapBounce{0%{transform:scale(1) rotate(var(--tilt));}40%{transform:scale(1.06) rotate(var(--tilt));}100%{transform:scale(1) rotate(var(--tilt));}}
+  .flag-card.slide-out-left{transform:translateX(-140%) rotate(-8deg);opacity:0;}
+  .flag-card.slide-out-right{transform:translateX(140%) rotate(8deg);opacity:0;}
+  .country-name{font-size:clamp(30px,7vw,52px);font-weight:800;letter-spacing:2px;color:var(--ink);}
+  .swipe-hint{font-size:14px;color:var(--ink-soft);font-weight:700;}
+  .dots{position:absolute;bottom:18px;display:flex;gap:8px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:#C9D3E0;}
+  .dot.on{background:var(--blue);}
+
+  /* ================= QUIZ SCREEN ================= */
+  #screen-quiz{gap:14px;padding:16px;}
+  .quiz-top{position:absolute;top:16px;right:16px;z-index:5;
+    background:var(--white);border-radius:20px;padding:8px 18px;
+    display:flex;align-items:center;gap:8px;box-shadow:0 6px 0 rgba(27,42,65,.12);
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:20px;}
+  .quiz-prompt{font-size:clamp(15px,3vw,18px);color:var(--ink-soft);font-weight:700;
+    margin-bottom:4px;}
+  .quiz-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;
+    width:min(90vw,560px);max-height:70vh;overflow-y:auto;}
+  .quiz-option{position:relative;aspect-ratio:3/2;background:var(--white);border:none;
+    border-radius:24px;padding:10px;box-shadow:0 10px 0 rgba(27,42,65,.15);cursor:pointer;
+    transition:transform .08s ease, box-shadow .08s ease;}
+  .quiz-option:active{transform:translateY(7px);box-shadow:0 3px 0 rgba(27,42,65,.15);}
+  .quiz-option img{width:100%;height:100%;object-fit:contain;border-radius:16px;display:block;}
+  /* スマホ縦画面では1列4段に切り替え */
+  @media (orientation:portrait) and (max-width:700px){
+    .quiz-grid{grid-template-columns:1fr;width:min(74vw,340px);}
+  }
+  .quiz-option.correct-flash{box-shadow:0 10px 0 var(--correct-shadow);
+    outline:6px solid var(--correct);}
+  .quiz-option.wrong-shake{animation:shake .38s ease;outline:6px solid var(--wrong);}
+  @keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-10px);}
+    40%{transform:translateX(9px);}60%{transform:translateX(-7px);}80%{transform:translateX(6px);}}
+  .toast{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);
+    background:var(--correct);color:#fff;font-family:'Baloo 2',sans-serif;font-weight:800;
+    font-size:28px;padding:14px 28px;border-radius:24px;opacity:0;pointer-events:none;
+    box-shadow:0 10px 0 var(--correct-shadow);z-index:9;}
+  .toast.show{animation:toastPop .8s ease forwards;}
+  @keyframes toastPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.5);}
+    30%{opacity:1;transform:translate(-50%,-50%) scale(1.05);}
+    70%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    100%{opacity:0;transform:translate(-50%,-60%) scale(1);}}
+  .quiz-warning{max-width:80vw;text-align:center;font-size:18px;color:var(--ink-soft);
+    font-weight:700;line-height:1.6;}
+
+  /* ================= CELEBRATION OVERLAY ================= */
+  #celebration{position:absolute;inset:0;z-index:20;display:none;
+    align-items:center;justify-content:center;background:rgba(27,42,65,.35);}
+  #celebration.show{display:flex;}
+  .celebration-card{background:var(--white);border-radius:32px;padding:36px 44px;
+    text-align:center;box-shadow:0 16px 0 rgba(27,42,65,.15);}
+  .celebration-card .big-emoji{font-size:64px;display:block;margin-bottom:8px;}
+  .celebration-card .big-text{font-family:'Baloo 2',sans-serif;font-weight:800;
+    font-size:clamp(24px,5vw,34px);color:var(--ink);}
+  .confetti-piece{position:absolute;top:-20px;border-radius:3px;z-index:25;
+    animation:confettiFall linear forwards;}
+  @keyframes confettiFall{to{transform:translateY(115vh) rotate(540deg);opacity:.9;}}
+
+  /* ================= SETTINGS SCREEN (adult / utility tone) ================= */
+  #screen-settings{align-items:stretch;justify-content:flex-start;padding:70px 20px 20px;
+    background:#F3F5F8;}
+  .settings-card{width:min(92vw,480px);margin:0 auto;background:var(--white);
+    border-radius:20px;padding:18px;box-shadow:0 2px 10px rgba(27,42,65,.08);
+    max-height:76vh;overflow-y:auto;}
+  .settings-title{font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;
+    color:var(--ink-soft);text-transform:uppercase;letter-spacing:1px;margin:4px 0 14px;
+    text-align:center;}
+  .country-row{display:flex;align-items:center;gap:12px;padding:9px 6px;
+    border-bottom:1px solid #EEF1F5;font-weight:700;font-size:15px;}
+  .country-row img{width:32px;height:24px;object-fit:cover;border-radius:4px;
+    box-shadow:0 0 0 1px #E3E7ED;}
+  .country-row input{width:20px;height:20px;margin-left:auto;}
+  .settings-note{max-width:92vw;text-align:center;font-size:13px;color:var(--ink-soft);
+    margin-top:10px;}
+
+  /* ---- settings controls: ランダム表示トグル/検索/並び替え ---- */
+  .settings-controls{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;
+    padding-bottom:12px;border-bottom:1px solid #EEF1F5;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;
+    font-weight:700;font-size:14px;color:var(--ink);}
+  .toggle-switch{position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0;}
+  .toggle-switch input{opacity:0;width:0;height:0;position:absolute;}
+  .toggle-slider{position:absolute;inset:0;background:#D3D9E2;border-radius:26px;
+    transition:.2s;cursor:pointer;}
+  .toggle-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+  .toggle-switch input:checked + .toggle-slider{background:var(--blue);}
+  .toggle-switch input:checked + .toggle-slider::before{transform:translateX(18px);}
+  .settings-actions{display:flex;gap:8px;align-items:center;}
+  #country-search{flex:1;min-width:0;padding:9px 12px;border-radius:12px;border:1px solid #DDE3EC;
+    font-family:'Nunito',sans-serif;font-size:14px;color:var(--ink);}
+  .reorder-btn{background:var(--blue);--sc:var(--blue-shadow);color:#fff;
+    font-size:13px;padding:9px 14px;border-radius:12px;box-shadow:0 5px 0 var(--sc);white-space:nowrap;}
+  .reorder-btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--sc);}
+  .reorder-btn.active{background:var(--wrong);--sc:var(--wrong-shadow);}
+
+  /* ---- 並び替え中の行(ドラッグ&ドロップ) ---- */
+  .country-row.reorder-row{cursor:grab;}
+  .country-row.reorder-row.dragging{opacity:.4;}
+  .country-row.reorder-row.drag-over{background:#EAF3FF;}
+  .drag-handle{font-size:18px;color:#B7C0CF;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= TOP ================= -->
+  <div class="screen active" id="screen-top">
+    <div class="blob" style="width:220px;height:220px;left:-40px;top:60px;background:#CFE9FF;"></div>
+    <div class="blob" style="width:160px;height:160px;right:-30px;top:30%;background:#FFF3D0;"></div>
+    <div class="blob" style="width:180px;height:180px;left:20%;bottom:-60px;background:#D8F5E5;"></div>
+    <h1 class="top-title display">🌍 Flag Friends</h1>
+    <button class="chunky top-btn btn-memorize" onclick="goMemorize()">
+      <span class="emoji">🟦</span><span>Learn</span>
+    </button>
+    <button class="chunky top-btn btn-quiz" onclick="goQuiz()">
+      <span class="emoji">🟨</span><span>Quiz</span>
+    </button>
+    <button class="chunky top-btn btn-settings" onclick="goSettings()">
+      <span class="emoji">⚙️</span><span>Settings (for parents)</span>
+    </button>
+  </div>
+
+  <!-- ================= MEMORIZE ================= -->
+  <div class="screen" id="screen-memorize">
+    <button class="chunky back-btn" onclick="goTop()">←</button>
+    <div class="flag-stage" id="memorize-stage">
+      <div class="flag-nav-row">
+        <button class="chunky flag-nav-btn" onclick="memPrev()" aria-label="Previous flag">‹</button>
+        <div class="flag-card" id="memorize-card" onclick="tapMemorizeCard()">
+          <img id="memorize-img" src="" alt="">
+        </div>
+        <button class="chunky flag-nav-btn" onclick="memNext()" aria-label="Next flag">›</button>
+      </div>
+      <div class="country-name display" id="memorize-name"></div>
+      <div class="swipe-hint">👈 swipe or tap the arrows 👉</div>
+    </div>
+    <div class="dots" id="memorize-dots"></div>
+  </div>
+
+  <!-- ================= QUIZ ================= -->
+  <div class="screen" id="screen-quiz">
+    <button class="chunky back-btn" onclick="goTop()">←</button>
+    <div class="quiz-top">⭐ <span id="star-count">0</span> <span id="medal-badge" style="display:none;">🏅<span id="medal-count"></span></span></div>
+    <div id="quiz-body" style="display:flex;flex-direction:column;align-items:center;gap:14px;">
+      <div class="quiz-prompt">Tap the flag you hear! 🔊</div>
+      <div class="quiz-grid" id="quiz-grid"></div>
+    </div>
+    <div class="toast" id="quiz-toast">Great! 🎉</div>
+  </div>
+
+  <!-- ================= CELEBRATION OVERLAY ================= -->
+  <div id="celebration">
+    <div class="celebration-card">
+      <span class="big-emoji" id="celebration-emoji">🎊</span>
+      <span class="big-text display" id="celebration-text">Congratulations!</span>
+    </div>
+  </div>
+
+  <!-- ================= SETTINGS ================= -->
+  <div class="screen" id="screen-settings">
+    <button class="chunky back-btn" onclick="goTop()">←</button>
+    <div class="settings-card">
+      <div class="settings-title">Countries in the quiz</div>
+
+      <div class="settings-controls">
+        <label class="toggle-row">
+          <span>Random order (Learn mode)</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="random-order-toggle" onchange="toggleRandomOrder(this)">
+            <span class="toggle-slider"></span>
+          </span>
+        </label>
+        <div class="settings-actions">
+          <input type="text" id="country-search" placeholder="Search a country…" oninput="renderSettings()">
+          <button class="chunky reorder-btn" id="reorder-toggle-btn" onclick="toggleReorderMode()">Reorder ⇅</button>
+        </div>
+      </div>
+
+      <div id="country-list"></div>
+    </div>
+    <div class="settings-note" id="settings-warning"></div>
+  </div>
+
+</div>
+
+<script>
+/* ================================================================
+   国旗データ(ISO 3166-1 alpha-2 コード / flagcdn.com 用)
+   ================================================================ */
+const ALL_COUNTRIES = [
+  // ---- はじめから ON(10か国) ----
+  {code:'jp', name:'Japan',         enabled:true},
+  {code:'us', name:'United States', enabled:true},
+  {code:'gb', name:'United Kingdom',enabled:true},
+  {code:'fr', name:'France',        enabled:true},
+  {code:'br', name:'Brazil',        enabled:true},
+  {code:'ca', name:'Canada',        enabled:true},
+  {code:'de', name:'Germany',       enabled:true},
+  {code:'it', name:'Italy',         enabled:true},
+  {code:'au', name:'Australia',     enabled:true},
+  {code:'kr', name:'South Korea',   enabled:true},
+
+  // ---- Africa (54) ----
+  {code:'dz', name:'Algeria', enabled:false},
+  {code:'ao', name:'Angola', enabled:false},
+  {code:'bj', name:'Benin', enabled:false},
+  {code:'bw', name:'Botswana', enabled:false},
+  {code:'bf', name:'Burkina Faso', enabled:false},
+  {code:'bi', name:'Burundi', enabled:false},
+  {code:'cv', name:'Cabo Verde', enabled:false},
+  {code:'cm', name:'Cameroon', enabled:false},
+  {code:'cf', name:'Central African Republic', enabled:false},
+  {code:'td', name:'Chad', enabled:false},
+  {code:'km', name:'Comoros', enabled:false},
+  {code:'cg', name:'Republic of the Congo', enabled:false},
+  {code:'cd', name:'Democratic Republic of the Congo', enabled:false},
+  {code:'dj', name:'Djibouti', enabled:false},
+  {code:'eg', name:'Egypt', enabled:false},
+  {code:'gq', name:'Equatorial Guinea', enabled:false},
+  {code:'er', name:'Eritrea', enabled:false},
+  {code:'sz', name:'Eswatini', enabled:false},
+  {code:'et', name:'Ethiopia', enabled:false},
+  {code:'ga', name:'Gabon', enabled:false},
+  {code:'gm', name:'Gambia', enabled:false},
+  {code:'gh', name:'Ghana', enabled:false},
+  {code:'gn', name:'Guinea', enabled:false},
+  {code:'gw', name:'Guinea-Bissau', enabled:false},
+  {code:'ci', name:'Ivory Coast', enabled:false},
+  {code:'ke', name:'Kenya', enabled:false},
+  {code:'ls', name:'Lesotho', enabled:false},
+  {code:'lr', name:'Liberia', enabled:false},
+  {code:'ly', name:'Libya', enabled:false},
+  {code:'mg', name:'Madagascar', enabled:false},
+  {code:'mw', name:'Malawi', enabled:false},
+  {code:'ml', name:'Mali', enabled:false},
+  {code:'mr', name:'Mauritania', enabled:false},
+  {code:'mu', name:'Mauritius', enabled:false},
+  {code:'ma', name:'Morocco', enabled:false},
+  {code:'mz', name:'Mozambique', enabled:false},
+  {code:'na', name:'Namibia', enabled:false},
+  {code:'ne', name:'Niger', enabled:false},
+  {code:'ng', name:'Nigeria', enabled:false},
+  {code:'rw', name:'Rwanda', enabled:false},
+  {code:'st', name:'Sao Tome and Principe', enabled:false},
+  {code:'sn', name:'Senegal', enabled:false},
+  {code:'sc', name:'Seychelles', enabled:false},
+  {code:'sl', name:'Sierra Leone', enabled:false},
+  {code:'so', name:'Somalia', enabled:false},
+  {code:'za', name:'South Africa', enabled:false},
+  {code:'ss', name:'South Sudan', enabled:false},
+  {code:'sd', name:'Sudan', enabled:false},
+  {code:'tz', name:'Tanzania', enabled:false},
+  {code:'tg', name:'Togo', enabled:false},
+  {code:'tn', name:'Tunisia', enabled:false},
+  {code:'ug', name:'Uganda', enabled:false},
+  {code:'zm', name:'Zambia', enabled:false},
+  {code:'zw', name:'Zimbabwe', enabled:false},
+
+  // ---- Americas (35) ----
+  {code:'ag', name:'Antigua and Barbuda', enabled:false},
+  {code:'bs', name:'Bahamas', enabled:false},
+  {code:'bb', name:'Barbados', enabled:false},
+  {code:'bz', name:'Belize', enabled:false},
+  {code:'cr', name:'Costa Rica', enabled:false},
+  {code:'cu', name:'Cuba', enabled:false},
+  {code:'dm', name:'Dominica', enabled:false},
+  {code:'do', name:'Dominican Republic', enabled:false},
+  {code:'sv', name:'El Salvador', enabled:false},
+  {code:'gd', name:'Grenada', enabled:false},
+  {code:'gt', name:'Guatemala', enabled:false},
+  {code:'ht', name:'Haiti', enabled:false},
+  {code:'hn', name:'Honduras', enabled:false},
+  {code:'jm', name:'Jamaica', enabled:false},
+  {code:'mx', name:'Mexico', enabled:false},
+  {code:'ni', name:'Nicaragua', enabled:false},
+  {code:'pa', name:'Panama', enabled:false},
+  {code:'kn', name:'Saint Kitts and Nevis', enabled:false},
+  {code:'lc', name:'Saint Lucia', enabled:false},
+  {code:'vc', name:'Saint Vincent and the Grenadines', enabled:false},
+  {code:'tt', name:'Trinidad and Tobago', enabled:false},
+  {code:'ar', name:'Argentina', enabled:false},
+  {code:'bo', name:'Bolivia', enabled:false},
+  {code:'cl', name:'Chile', enabled:false},
+  {code:'co', name:'Colombia', enabled:false},
+  {code:'ec', name:'Ecuador', enabled:false},
+  {code:'gy', name:'Guyana', enabled:false},
+  {code:'py', name:'Paraguay', enabled:false},
+  {code:'pe', name:'Peru', enabled:false},
+  {code:'sr', name:'Suriname', enabled:false},
+  {code:'uy', name:'Uruguay', enabled:false},
+  {code:'ve', name:'Venezuela', enabled:false},
+
+  // ---- Asia (47) ----
+  {code:'af', name:'Afghanistan', enabled:false},
+  {code:'am', name:'Armenia', enabled:false},
+  {code:'az', name:'Azerbaijan', enabled:false},
+  {code:'bh', name:'Bahrain', enabled:false},
+  {code:'bd', name:'Bangladesh', enabled:false},
+  {code:'bt', name:'Bhutan', enabled:false},
+  {code:'bn', name:'Brunei', enabled:false},
+  {code:'kh', name:'Cambodia', enabled:false},
+  {code:'cn', name:'China', enabled:false},
+  {code:'cy', name:'Cyprus', enabled:false},
+  {code:'ge', name:'Georgia', enabled:false},
+  {code:'in', name:'India', enabled:false},
+  {code:'id', name:'Indonesia', enabled:false},
+  {code:'ir', name:'Iran', enabled:false},
+  {code:'iq', name:'Iraq', enabled:false},
+  {code:'il', name:'Israel', enabled:false},
+  {code:'jo', name:'Jordan', enabled:false},
+  {code:'kz', name:'Kazakhstan', enabled:false},
+  {code:'kw', name:'Kuwait', enabled:false},
+  {code:'kg', name:'Kyrgyzstan', enabled:false},
+  {code:'la', name:'Laos', enabled:false},
+  {code:'lb', name:'Lebanon', enabled:false},
+  {code:'my', name:'Malaysia', enabled:false},
+  {code:'mv', name:'Maldives', enabled:false},
+  {code:'mn', name:'Mongolia', enabled:false},
+  {code:'mm', name:'Myanmar', enabled:false},
+  {code:'np', name:'Nepal', enabled:false},
+  {code:'kp', name:'North Korea', enabled:false},
+  {code:'om', name:'Oman', enabled:false},
+  {code:'pk', name:'Pakistan', enabled:false},
+  {code:'ph', name:'Philippines', enabled:false},
+  {code:'qa', name:'Qatar', enabled:false},
+  {code:'sa', name:'Saudi Arabia', enabled:false},
+  {code:'sg', name:'Singapore', enabled:false},
+  {code:'lk', name:'Sri Lanka', enabled:false},
+  {code:'sy', name:'Syria', enabled:false},
+  {code:'tj', name:'Tajikistan', enabled:false},
+  {code:'th', name:'Thailand', enabled:false},
+  {code:'tl', name:'Timor-Leste', enabled:false},
+  {code:'tr', name:'Turkey', enabled:false},
+  {code:'tm', name:'Turkmenistan', enabled:false},
+  {code:'ae', name:'United Arab Emirates', enabled:false},
+  {code:'uz', name:'Uzbekistan', enabled:false},
+  {code:'vn', name:'Vietnam', enabled:false},
+  {code:'ye', name:'Yemen', enabled:false},
+
+  // ---- Europe (43) ----
+  {code:'al', name:'Albania', enabled:false},
+  {code:'ad', name:'Andorra', enabled:false},
+  {code:'at', name:'Austria', enabled:false},
+  {code:'by', name:'Belarus', enabled:false},
+  {code:'be', name:'Belgium', enabled:false},
+  {code:'ba', name:'Bosnia and Herzegovina', enabled:false},
+  {code:'bg', name:'Bulgaria', enabled:false},
+  {code:'hr', name:'Croatia', enabled:false},
+  {code:'cz', name:'Czech Republic', enabled:false},
+  {code:'dk', name:'Denmark', enabled:false},
+  {code:'ee', name:'Estonia', enabled:false},
+  {code:'fi', name:'Finland', enabled:false},
+  {code:'gr', name:'Greece', enabled:false},
+  {code:'hu', name:'Hungary', enabled:false},
+  {code:'is', name:'Iceland', enabled:false},
+  {code:'ie', name:'Ireland', enabled:false},
+  {code:'lv', name:'Latvia', enabled:false},
+  {code:'li', name:'Liechtenstein', enabled:false},
+  {code:'lt', name:'Lithuania', enabled:false},
+  {code:'lu', name:'Luxembourg', enabled:false},
+  {code:'mt', name:'Malta', enabled:false},
+  {code:'md', name:'Moldova', enabled:false},
+  {code:'mc', name:'Monaco', enabled:false},
+  {code:'me', name:'Montenegro', enabled:false},
+  {code:'nl', name:'Netherlands', enabled:false},
+  {code:'mk', name:'North Macedonia', enabled:false},
+  {code:'no', name:'Norway', enabled:false},
+  {code:'pl', name:'Poland', enabled:false},
+  {code:'pt', name:'Portugal', enabled:false},
+  {code:'ro', name:'Romania', enabled:false},
+  {code:'ru', name:'Russia', enabled:false},
+  {code:'sm', name:'San Marino', enabled:false},
+  {code:'rs', name:'Serbia', enabled:false},
+  {code:'sk', name:'Slovakia', enabled:false},
+  {code:'si', name:'Slovenia', enabled:false},
+  {code:'es', name:'Spain', enabled:false},
+  {code:'se', name:'Sweden', enabled:false},
+  {code:'ch', name:'Switzerland', enabled:false},
+  {code:'ua', name:'Ukraine', enabled:false},
+
+  // ---- Oceania (14) ----
+  {code:'fj', name:'Fiji', enabled:false},
+  {code:'ki', name:'Kiribati', enabled:false},
+  {code:'mh', name:'Marshall Islands', enabled:false},
+  {code:'fm', name:'Micronesia', enabled:false},
+  {code:'nr', name:'Nauru', enabled:false},
+  {code:'nz', name:'New Zealand', enabled:false},
+  {code:'pw', name:'Palau', enabled:false},
+  {code:'pg', name:'Papua New Guinea', enabled:false},
+  {code:'ws', name:'Samoa', enabled:false},
+  {code:'sb', name:'Solomon Islands', enabled:false},
+  {code:'to', name:'Tonga', enabled:false},
+  {code:'tv', name:'Tuvalu', enabled:false},
+  {code:'vu', name:'Vanuatu', enabled:false},
+];
+
+let randomOrder = false;   // せってい: ランダム表示のオン/オフ(おぼえるモードの順序に反映)
+let memorizeList = [];     // おぼえるモードで現在表示している国の並び(通常順 or シャッフル済み)
+
+function flagUrl(code, w){ return `https://flagcdn.com/w${w}/${code}.png`; }
+function enabledCountries(){ return ALL_COUNTRIES.filter(c=>c.enabled); }
+
+/* ================================================================
+   画面遷移
+   ================================================================ */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.speechSynthesis && window.speechSynthesis.cancel();
+}
+function goTop(){ showScreen('screen-top'); }
+function goMemorize(){
+  ensureAudio();
+  memIndex = 0;
+  memorizeList = randomOrder ? shuffle(enabledCountries()) : enabledCountries();
+  renderMemorizeCard();
+  showScreen('screen-memorize');
+}
+function goQuiz(){ ensureAudio(); showScreen('screen-quiz'); startQuizRound(); }
+function goSettings(){ renderSettings(); showScreen('screen-settings'); }
+
+/* ================================================================
+   音声(Web Speech API)
+   ================================================================ */
+function speak(text){
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = 0.85;
+  u.pitch = 1.15;
+  window.speechSynthesis.speak(u);
+}
+
+/* ================================================================
+   効果音(Web Audio API — ファイル不要)
+   ================================================================ */
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+function tone(freq, start, dur, type='sine', peakGain=0.22){
+  if(!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime+start);
+  gain.gain.setValueAtTime(0.0001, audioCtx.currentTime+start);
+  gain.gain.exponentialRampToValueAtTime(peakGain, audioCtx.currentTime+start+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime+start+dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(audioCtx.currentTime+start);
+  osc.stop(audioCtx.currentTime+start+dur+0.02);
+}
+function playCorrectChime(){ tone(660,0,0.14,'sine',0.2); tone(880,0.12,0.18,'sine',0.22); }
+function playBuzz(){ // 「ブッブー」: 低音を2回
+  tone(170,0,0.16,'sawtooth',0.18);
+  tone(140,0.2,0.2,'sawtooth',0.18);
+}
+
+/* ================================================================
+   紙吹雪
+   ================================================================ */
+function burstConfetti(count=26, fullscreen=false){
+  const colors = ['#3DA9FC','#FFC93C','#4CD787','#FF6B6B','#9B5DE5'];
+  for(let i=0;i<count;i++){
+    const el = document.createElement('div');
+    el.className='confetti-piece';
+    const size = 6+Math.random()*8;
+    el.style.width = size+'px';
+    el.style.height = (size*0.6)+'px';
+    el.style.background = colors[Math.floor(Math.random()*colors.length)];
+    el.style.left = (Math.random()*100)+'vw';
+    el.style.animationDuration = (1.4+Math.random()*1.2)+'s';
+    el.style.animationDelay = (Math.random()*0.3)+'s';
+    document.getElementById('app').appendChild(el);
+    setTimeout(()=>el.remove(), 3000);
+  }
+}
+
+/* ================================================================
+   おぼえる (Memorize)
+   ================================================================ */
+let memIndex = 0;
+function renderMemorizeCard(){
+  const list = memorizeList;
+  if(list.length===0){ return; }
+  const c = list[memIndex % list.length];
+  const card = document.getElementById('memorize-card');
+  card.style.setProperty('--tilt', (Math.random()*6-3)+'deg');
+  card.style.transform = `rotate(${card.style.getPropertyValue('--tilt')})`;
+  document.getElementById('memorize-img').src = flagUrl(c.code, 640);
+  document.getElementById('memorize-img').alt = c.name;
+  document.getElementById('memorize-name').textContent = c.name.toUpperCase();
+
+  const dots = document.getElementById('memorize-dots');
+  dots.innerHTML = '';
+  list.forEach((_,i)=>{
+    const d = document.createElement('div');
+    d.className = 'dot' + (i===(memIndex%list.length) ? ' on' : '');
+    dots.appendChild(d);
+  });
+}
+function tapMemorizeCard(){
+  const list = memorizeList;
+  if(list.length===0) return;
+  const c = list[memIndex % list.length];
+  speak(c.name + '!');
+  const card = document.getElementById('memorize-card');
+  card.classList.remove('tap-bounce'); void card.offsetWidth;
+  card.classList.add('tap-bounce');
+}
+/* 次へ/前へ(スワイプ・矢印ボタン・キーボード共通) */
+let memAnimating = false;
+function memAdvance(direction){ // direction: 1=次へ, -1=前へ
+  if(memAnimating) return;
+  const list = memorizeList;
+  if(list.length===0) return;
+  memAnimating = true;
+  const card = document.getElementById('memorize-card');
+  card.classList.add(direction>0 ? 'slide-out-left' : 'slide-out-right');
+  setTimeout(()=>{
+    memIndex = (memIndex + direction + list.length) % list.length;
+    card.classList.remove('slide-out-left','slide-out-right');
+    renderMemorizeCard();
+    memAnimating = false;
+  },180);
+}
+function memNext(){ memAdvance(1); }
+function memPrev(){ memAdvance(-1); }
+
+/* スワイプ操作(タッチ・マウスドラッグ両対応) */
+(function initSwipe(){
+  const stage = document.getElementById('memorize-stage');
+  let startX=null, startY=null;
+  stage.addEventListener('pointerdown', e=>{ startX=e.clientX; startY=e.clientY; });
+  stage.addEventListener('pointerup', e=>{
+    if(startX===null) return;
+    const dx = e.clientX-startX, dy = e.clientY-startY;
+    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)){
+      dx<0 ? memNext() : memPrev();
+    }
+    startX=null; startY=null;
+  });
+})();
+
+/* ================================================================
+   クイズ (Quiz)
+   ================================================================ */
+let stars = 0;
+let medals = 0;
+let quizCorrectCode = null;
+let quizLocked = false;
+
+/* 正解時のほめ言葉(ランダム表示+読み上げ用) */
+const PRAISE_WORDS = [
+  {text:'Great!',      emoji:'🎉'},
+  {text:'Awesome!',    emoji:'🌟'},
+  {text:'Nice job!',   emoji:'👏'},
+  {text:'Wonderful!',  emoji:'✨'},
+  {text:'You got it!', emoji:'🙌'},
+  {text:'Fantastic!',  emoji:'🎊'},
+  {text:'Well done!',  emoji:'👍'},
+  {text:'Super!',      emoji:'💫'},
+  {text:'Amazing!',    emoji:'🤩'},
+  {text:'Yay!',        emoji:'🎈'},
+];
+
+function shuffle(arr){ return arr.slice().sort(()=>Math.random()-0.5); }
+
+function startQuizRound(){
+  const pool = enabledCountries();
+  const body = document.getElementById('quiz-body');
+  const grid = document.getElementById('quiz-grid');
+  if(pool.length < 4){
+    body.innerHTML = `<div class="quiz-warning">Please turn on at least 4 countries<br>in Settings (for parents) ⚙️</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="quiz-prompt">Tap the flag you hear! 🔊</div><div class="quiz-grid" id="quiz-grid"></div>`;
+  const grid2 = document.getElementById('quiz-grid');
+  const choices = shuffle(pool).slice(0,4);
+  const correct = choices[Math.floor(Math.random()*4)];
+  quizCorrectCode = correct.code;
+  quizLocked = false;
+  grid2.innerHTML = '';
+  choices.forEach(c=>{
+    const btn = document.createElement('button');
+    btn.className = 'quiz-option';
+    btn.innerHTML = `<img src="${flagUrl(c.code,320)}" alt="${c.name}">`;
+    btn.onclick = ()=>handleQuizAnswer(c.code, btn);
+    grid2.appendChild(btn);
+  });
+  setTimeout(()=> speak(correct.name + '!'), 350);
+}
+
+function handleQuizAnswer(code, btnEl){
+  if(quizLocked) return;
+  if(code === quizCorrectCode){
+    quizLocked = true;
+    playCorrectChime();
+    btnEl.classList.add('correct-flash');
+    burstConfetti(14);
+    stars++;
+    updateStarDisplay();
+    const praise = PRAISE_WORDS[Math.floor(Math.random()*PRAISE_WORDS.length)];
+    showToast(praise);
+    speakPraiseThenAdvance(praise.text, stars); // 読み上げが終わってから次へ進む
+  } else {
+    playBuzz();
+    btnEl.classList.add('wrong-shake');
+    setTimeout(()=>btnEl.classList.remove('wrong-shake'),400);
+  }
+}
+
+/* ほめ言葉の読み上げが終わるのを待ってから次の画面/演出に進む */
+function speakPraiseThenAdvance(text, starsAtAnswer){
+  const proceed = ()=> advanceAfterAnswer(starsAtAnswer);
+  if(!('speechSynthesis' in window)){ setTimeout(proceed, 900); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.15;
+  let done = false;
+  const finish = ()=>{ if(done) return; done = true; proceed(); };
+  u.onend = finish;
+  u.onerror = finish;
+  window.speechSynthesis.speak(u);
+  setTimeout(finish, 2200); // 万一onendが発火しない端末向けの保険
+}
+function advanceAfterAnswer(starsAtAnswer){
+  const milestone10 = (starsAtAnswer % 10 === 0);
+  const milestone100 = (starsAtAnswer % 100 === 0);
+  setTimeout(()=>{
+    if(milestone100){ medals++; updateStarDisplay(); celebrate('🏅', "Medal earned!"); }
+    else if(milestone10){ celebrate('🎊', "Congratulations!"); }
+    else { startQuizRound(); }
+  }, 250); // 読み上げ後、一呼吸おいてから遷移
+}
+function updateStarDisplay(){
+  document.getElementById('star-count').textContent = stars;
+  const badge = document.getElementById('medal-badge');
+  if(medals>0){ badge.style.display='inline'; document.getElementById('medal-count').textContent = ' x'+medals; }
+}
+function showToast(praise){
+  const t = document.getElementById('quiz-toast');
+  t.textContent = `${praise.emoji} ${praise.text}`;
+  t.classList.remove('show'); void t.offsetWidth;
+  t.classList.add('show');
+}
+function celebrate(emoji, text){
+  document.getElementById('celebration-emoji').textContent = emoji;
+  document.getElementById('celebration-text').textContent = text;
+  document.getElementById('celebration').classList.add('show');
+  burstConfetti(40, true);
+  setTimeout(()=>{
+    document.getElementById('celebration').classList.remove('show');
+    startQuizRound();
+  }, 1800);
+}
+
+/* ================================================================
+   せってい (Settings — 保護者用)
+   ================================================================ */
+let reorderMode = false;   // 並び替えモード(ドラッグ&ドロップで国の順序を変更)
+let dragSourceCode = null;
+
+function renderSettings(){
+  document.getElementById('random-order-toggle').checked = randomOrder;
+
+  const btn = document.getElementById('reorder-toggle-btn');
+  btn.textContent = reorderMode ? 'Done ✓' : 'Reorder ⇅';
+  btn.classList.toggle('active', reorderMode);
+
+  const searchBox = document.getElementById('country-search');
+  searchBox.style.display = reorderMode ? 'none' : '';
+  const query = (searchBox.value || '').trim().toLowerCase();
+
+  const listEl = document.getElementById('country-list');
+  listEl.innerHTML = '';
+
+  // 並び替え中は「チェックが入っている国」だけを表示・ドラッグ対象にする
+  const source = reorderMode
+    ? ALL_COUNTRIES.filter(c => c.enabled)
+    : ALL_COUNTRIES.filter(c => c.name.toLowerCase().includes(query));
+
+  source.forEach(c=>{
+    const row = document.createElement(reorderMode ? 'div' : 'label');
+    row.className = 'country-row' + (reorderMode ? ' reorder-row' : '');
+
+    if(reorderMode){
+      row.draggable = true;
+      row.dataset.code = c.code;
+      row.innerHTML = `
+        <span class="drag-handle">☰</span>
+        <img src="${flagUrl(c.code,40)}" alt="">
+        <span>${c.name}</span>
+      `;
+      row.addEventListener('dragstart', e=>handleDragStart(e, c.code));
+      row.addEventListener('dragover',  e=>handleDragOver(e));
+      row.addEventListener('dragenter', ()=>row.classList.add('drag-over'));
+      row.addEventListener('dragleave', ()=>row.classList.remove('drag-over'));
+      row.addEventListener('drop',      e=>handleDrop(e, c.code));
+      row.addEventListener('dragend',   e=>handleDragEnd(e));
+    } else {
+      row.innerHTML = `
+        <img src="${flagUrl(c.code,40)}" alt="">
+        <span>${c.name}</span>
+        <input type="checkbox" ${c.enabled?'checked':''} onchange="toggleCountry('${c.code}', this)">
+      `;
+    }
+    listEl.appendChild(row);
+  });
+
+  updateSettingsWarning();
+}
+
+function toggleRandomOrder(checkbox){
+  randomOrder = checkbox.checked;
+}
+
+function toggleReorderMode(){
+  reorderMode = !reorderMode;
+  renderSettings();
+}
+
+/* ドラッグ&ドロップでの並び替え(ネイティブ Drag and Drop API) */
+function handleDragStart(e, code){
+  dragSourceCode = code;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.classList.add('dragging');
+}
+function handleDragOver(e){
+  e.preventDefault(); // これが無いとdropイベントが発火しない
+  e.dataTransfer.dropEffect = 'move';
+}
+function handleDrop(e, targetCode){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(dragSourceCode && dragSourceCode !== targetCode){
+    const fromIndex = ALL_COUNTRIES.findIndex(c=>c.code===dragSourceCode);
+    const toIndex   = ALL_COUNTRIES.findIndex(c=>c.code===targetCode);
+    const [moved] = ALL_COUNTRIES.splice(fromIndex,1);
+    ALL_COUNTRIES.splice(toIndex,0,moved);
+    renderSettings();
+  }
+  dragSourceCode = null;
+}
+function handleDragEnd(e){
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.reorder-row.drag-over').forEach(el=>el.classList.remove('drag-over'));
+}
+
+function toggleCountry(code, checkbox){
+  const enabledNow = ALL_COUNTRIES.filter(c=>c.enabled).length;
+  const target = ALL_COUNTRIES.find(c=>c.code===code);
+  if(!checkbox.checked && enabledNow<=4){
+    checkbox.checked = true; // 4か国未満にはできない
+    updateSettingsWarning(true);
+    return;
+  }
+  target.enabled = checkbox.checked;
+  updateSettingsWarning();
+}
+function updateSettingsWarning(forced=false){
+  const el = document.getElementById('settings-warning');
+  const n = ALL_COUNTRIES.filter(c=>c.enabled).length;
+  if(forced){
+    el.textContent = 'At least 4 countries are needed for the quiz.';
+  } else if(reorderMode){
+    el.textContent = `Drag to reorder — showing the ${n} countries currently ON.`;
+  } else {
+    el.textContent = `${n} countries selected`;
+  }
+}
+
+/* 初回タップでオーディオ許可を得る(ブラウザ制限対策) */
+document.addEventListener('pointerdown', ensureAudio, {once:true});
+</script>
+</body>
+</html>
