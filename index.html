@@ -473,6 +473,57 @@ const ALL_COUNTRIES = [
 let randomOrder = false;   // せってい: ランダム表示のオン/オフ(おぼえるモードの順序に反映)
 let memorizeList = [];     // おぼえるモードで現在表示している国の並び(通常順 or シャッフル済み)
 
+/* ================================================================
+   せっていの保存/読み込み(ブラウザのlocalStorage)
+   ・保存する内容: 国の並び順・有効/無効・ランダム表示のオン/オフ
+   ・⭐スターや🏅メダルはあえて保存せず、開くたびにリセットする仕様のまま
+   ================================================================ */
+const SETTINGS_STORAGE_KEY = 'flagFriendsSettings_v1';
+
+function saveSettings(){
+  try{
+    const data = {
+      order: ALL_COUNTRIES.map(c => c.code),
+      enabled: Object.fromEntries(ALL_COUNTRIES.map(c => [c.code, c.enabled])),
+      randomOrder: randomOrder,
+    };
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(data));
+  }catch(e){
+    console.warn('設定の保存に失敗しました(プライベートブラウズ中などの可能性があります):', e);
+  }
+}
+
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+
+    if(Array.isArray(data.order)){
+      const byCode = new Map(ALL_COUNTRIES.map(c => [c.code, c]));
+      const reordered = data.order.map(code => byCode.get(code)).filter(Boolean);
+      const savedCodes = new Set(data.order);
+      // 保存後に追加された国(将来アプリを更新した場合など)は末尾に足す
+      ALL_COUNTRIES.forEach(c => { if(!savedCodes.has(c.code)) reordered.push(c); });
+      ALL_COUNTRIES.length = 0;
+      ALL_COUNTRIES.push(...reordered);
+    }
+    if(data.enabled && typeof data.enabled === 'object'){
+      ALL_COUNTRIES.forEach(c => {
+        if(Object.prototype.hasOwnProperty.call(data.enabled, c.code)){
+          c.enabled = !!data.enabled[c.code];
+        }
+      });
+    }
+    if(typeof data.randomOrder === 'boolean'){
+      randomOrder = data.randomOrder;
+    }
+  }catch(e){
+    console.warn('保存された設定の読み込みに失敗しました:', e);
+  }
+}
+loadSettings(); // ページを開いた時点で、前回保存した設定を反映する
+
 function flagUrl(code, w){ return `https://flagcdn.com/w${w}/${code}.png`; }
 function enabledCountries(){ return ALL_COUNTRIES.filter(c=>c.enabled); }
 
@@ -827,6 +878,7 @@ function renderSettings(){
 
 function toggleRandomOrder(checkbox){
   randomOrder = checkbox.checked;
+  saveSettings();
 }
 
 function toggleReorderMode(){
@@ -853,6 +905,7 @@ function handleDrop(e, targetCode){
     const [moved] = ALL_COUNTRIES.splice(fromIndex,1);
     ALL_COUNTRIES.splice(toIndex,0,moved);
     renderSettings();
+    saveSettings();
   }
   dragSourceCode = null;
 }
@@ -871,6 +924,7 @@ function toggleCountry(code, checkbox){
   }
   target.enabled = checkbox.checked;
   updateSettingsWarning();
+  saveSettings();
 }
 function updateSettingsWarning(forced=false){
   const el = document.getElementById('settings-warning');
